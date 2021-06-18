@@ -1,7 +1,7 @@
 /** @license
  *
  * jsPDF - PDF Document creation from JavaScript
- * Version 2.3.1 Built on 2021-03-08T15:44:11.674Z
+ * Version 2.3.1 Built on 2021-06-18T14:12:12.683Z
  *                      CommitID 00000000
  *
  * Copyright (c) 2010-2020 James Hall <james@parall.ax>, https://github.com/MrRio/jsPDF
@@ -180,7 +180,8 @@ var saveAs =
         /* noop */
       }
     : // Use download attribute first if possible (#193 Lumia mobile) unless this is a native app
-    (typeof HTMLAnchorElement !== "undefined" && "download" in HTMLAnchorElement.prototype)
+    typeof HTMLAnchorElement !== "undefined" &&
+      "download" in HTMLAnchorElement.prototype
     ? function saveAs(blob, name, opts) {
         var URL = globalObject.URL || globalObject.webkitURL;
         var a = document.createElement("a");
@@ -737,13 +738,7 @@ function add32(a, b) {
   return (a + b) & 0xffffffff;
 }
 
-if (md5("hello") != "5d41402abc4b2a76b9719d911017c592") {
-  function add32(x, y) {
-    var lsw = (x & 0xffff) + (y & 0xffff),
-      msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-    return (msw << 16) | (lsw & 0xffff);
-  }
-}
+if (md5("hello") != "5d41402abc4b2a76b9719d911017c592") ;
 
 /**
  * @license
@@ -842,9 +837,6 @@ function PDFSecurity(permissions, userPassword, ownerPassword, fileId) {
   // set flags for what functionalities the user can access
   let protection = 192;
   permissions.forEach(function(perm) {
-    if (typeof permissionOptions.perm !== "undefined") {
-      throw new Error("Invalid permission: " + perm);
-    }
     protection += permissionOptions[perm];
   });
 
@@ -961,8 +953,55 @@ PDFSecurity.prototype.encryptor = function(objectId, generation) {
   };
 };
 
-/* eslint-disable no-console */
+/**
+ * Convert string to `PDF Name Object`.
+ * Detail: PDF Reference 1.3 - Chapter 3.2.4 Name Object
+ * @param str
+ */
+function toPDFName(str) {
+  // eslint-disable-next-line no-control-regex
+  if (/[^\u0000-\u00ff]/.test(str)) {
+    // non ascii string
+    throw new Error(
+      "Invalid PDF Name Object: " + str + ", Only accept ASCII characters."
+    );
+  }
+  var result = "",
+    strLength = str.length;
+  for (var i = 0; i < strLength; i++) {
+    var charCode = str.charCodeAt(i);
+    if (
+      charCode < 0x21 ||
+      charCode === 0x23 /* # */ ||
+      charCode === 0x25 /* % */ ||
+      charCode === 0x28 /* ( */ ||
+      charCode === 0x29 /* ) */ ||
+      charCode === 0x2f /* / */ ||
+      charCode === 0x3c /* < */ ||
+      charCode === 0x3e /* > */ ||
+      charCode === 0x5b /* [ */ ||
+      charCode === 0x5d /* ] */ ||
+      charCode === 0x7b /* { */ ||
+      charCode === 0x7d /* } */ ||
+      charCode > 0x7e
+    ) {
+      // Char    CharCode    hexStr   paddingHexStr    Result
+      // "\t"    9           9        09               #09
+      // " "     32          20       20               #20
+      // "©"     169         a9       a9               #a9
+      var hexStr = charCode.toString(16),
+        paddingHexStr = ("0" + hexStr).slice(-2);
 
+      result += "#" + paddingHexStr;
+    } else {
+      // Other ASCII printable characters between 0x21 <= X <= 0x7e
+      result += str[i];
+    }
+  }
+  return result;
+}
+
+/* eslint-disable no-console */
 /**
  * jsPDF's Internal PubSub Implementation.
  * Backward compatible rewritten on 2014 by
@@ -980,7 +1019,7 @@ function PubSub(context) {
   }
   var topics = {};
 
-  this.subscribe = function(topic, callback, once) {
+  this.subscribe = function (topic, callback, once) {
     once = once || false;
     if (
       typeof topic !== "string" ||
@@ -1002,7 +1041,7 @@ function PubSub(context) {
     return token;
   };
 
-  this.unsubscribe = function(token) {
+  this.unsubscribe = function (token) {
     for (var topic in topics) {
       if (topics[topic][token]) {
         delete topics[topic][token];
@@ -1015,7 +1054,7 @@ function PubSub(context) {
     return false;
   };
 
-  this.publish = function(topic) {
+  this.publish = function (topic) {
     if (topics.hasOwnProperty(topic)) {
       var args = Array.prototype.slice.call(arguments, 1),
         tokens = [];
@@ -1035,7 +1074,7 @@ function PubSub(context) {
     }
   };
 
-  this.getTopics = function() {
+  this.getTopics = function () {
     return topics;
   };
 }
@@ -1213,11 +1252,11 @@ function jsPDF(options) {
   API.__private__.PubSub = PubSub;
 
   var pdfVersion = "1.3";
-  var getPdfVersion = (API.__private__.getPdfVersion = function() {
+  var getPdfVersion = (API.__private__.getPdfVersion = function () {
     return pdfVersion;
   });
 
-  API.__private__.setPdfVersion = function(value) {
+  API.__private__.setPdfVersion = function (value) {
     pdfVersion = value;
   };
 
@@ -1266,11 +1305,11 @@ function jsPDF(options) {
     "credit-card": [153, 243]
   };
 
-  API.__private__.getPageFormats = function() {
+  API.__private__.getPageFormats = function () {
     return pageFormats;
   };
 
-  var getPageFormat = (API.__private__.getPageFormat = function(value) {
+  var getPageFormat = (API.__private__.getPageFormat = function (value) {
     return pageFormats[value];
   });
 
@@ -1319,7 +1358,7 @@ function jsPDF(options) {
    * @returns {string}
    * @private
    */
-  var combineFontStyleAndFontWeight = function(fontStyle, fontWeight) {
+  var combineFontStyleAndFontWeight = function (fontStyle, fontWeight) {
     if (
       (fontStyle == "bold" && fontWeight == "normal") ||
       (fontStyle == "bold" && fontWeight == 400) ||
@@ -1336,8 +1375,8 @@ function jsPDF(options) {
             ? "italic"
             : "normal"
           : fontWeight == 700 && fontStyle !== "italic"
-          ? "bold"
-          : fontStyle + "" + fontWeight;
+            ? "bold"
+            : fontStyle + "" + fontWeight;
     }
     return fontStyle;
   };
@@ -1368,7 +1407,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name advancedAPI
    */
-  API.advancedAPI = function(body) {
+  API.advancedAPI = function (body) {
     var doSwitch = apiMode === ApiMode.COMPAT;
 
     if (doSwitch) {
@@ -1397,7 +1436,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name compatApi
    */
-  API.compatAPI = function(body) {
+  API.compatAPI = function (body) {
     var doSwitch = apiMode === ApiMode.ADVANCED;
 
     if (doSwitch) {
@@ -1422,21 +1461,21 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name isAdvancedAPI
    */
-  API.isAdvancedAPI = function() {
+  API.isAdvancedAPI = function () {
     return apiMode === ApiMode.ADVANCED;
   };
 
-  var advancedApiModeTrap = function(methodName) {
+  var advancedApiModeTrap = function (methodName) {
     if (apiMode !== ApiMode.ADVANCED) {
       throw new Error(
         methodName +
-          " is only available in 'advanced' API mode. " +
-          "You need to call advancedAPI() first."
+        " is only available in 'advanced' API mode. " +
+        "You need to call advancedAPI() first."
       );
     }
   };
 
-  var roundToPrecision = (API.roundToPrecision = API.__private__.roundToPrecision = function(
+  var roundToPrecision = (API.roundToPrecision = API.__private__.roundToPrecision = function (
     number,
     parmPrecision
   ) {
@@ -1450,14 +1489,14 @@ function jsPDF(options) {
   // high precision float
   var hpf;
   if (typeof floatPrecision === "number") {
-    hpf = API.hpf = API.__private__.hpf = function(number) {
+    hpf = API.hpf = API.__private__.hpf = function (number) {
       if (isNaN(number)) {
         throw new Error("Invalid argument passed to jsPDF.hpf");
       }
       return roundToPrecision(number, floatPrecision);
     };
   } else if (floatPrecision === "smart") {
-    hpf = API.hpf = API.__private__.hpf = function(number) {
+    hpf = API.hpf = API.__private__.hpf = function (number) {
       if (isNaN(number)) {
         throw new Error("Invalid argument passed to jsPDF.hpf");
       }
@@ -1468,28 +1507,28 @@ function jsPDF(options) {
       }
     };
   } else {
-    hpf = API.hpf = API.__private__.hpf = function(number) {
+    hpf = API.hpf = API.__private__.hpf = function (number) {
       if (isNaN(number)) {
         throw new Error("Invalid argument passed to jsPDF.hpf");
       }
       return roundToPrecision(number, 16);
     };
   }
-  var f2 = (API.f2 = API.__private__.f2 = function(number) {
+  var f2 = (API.f2 = API.__private__.f2 = function (number) {
     if (isNaN(number)) {
       throw new Error("Invalid argument passed to jsPDF.f2");
     }
     return roundToPrecision(number, 2);
   });
 
-  var f3 = (API.__private__.f3 = function(number) {
+  var f3 = (API.__private__.f3 = function (number) {
     if (isNaN(number)) {
       throw new Error("Invalid argument passed to jsPDF.f3");
     }
     return roundToPrecision(number, 3);
   });
 
-  var scale = (API.scale = API.__private__.scale = function(number) {
+  var scale = (API.scale = API.__private__.scale = function (number) {
     if (isNaN(number)) {
       throw new Error("Invalid argument passed to jsPDF.scale");
     }
@@ -1500,7 +1539,7 @@ function jsPDF(options) {
     }
   });
 
-  var transformY = function(y) {
+  var transformY = function (y) {
     if (apiMode === ApiMode.COMPAT) {
       return getPageHeight() - y;
     } else if (apiMode === ApiMode.ADVANCED) {
@@ -1508,7 +1547,7 @@ function jsPDF(options) {
     }
   };
 
-  var transformScaleY = function(y) {
+  var transformScaleY = function (y) {
     return scale(transformY(y));
   };
 
@@ -1520,7 +1559,7 @@ function jsPDF(options) {
    * @param {string} precision
    * @returns {jsPDF}
    */
-  API.__private__.setPrecision = API.setPrecision = function(value) {
+  API.__private__.setPrecision = API.setPrecision = function (value) {
     if (typeof parseInt(value, 10) === "number") {
       precision = parseInt(value, 10);
     }
@@ -1528,17 +1567,17 @@ function jsPDF(options) {
 
   var fileId = "00000000000000000000000000000000";
 
-  var getFileId = (API.__private__.getFileId = function() {
+  var getFileId = (API.__private__.getFileId = function () {
     return fileId;
   });
 
-  var setFileId = (API.__private__.setFileId = function(value) {
+  var setFileId = (API.__private__.setFileId = function (value) {
     if (typeof value !== "undefined" && /^[a-fA-F0-9]{32}$/.test(value)) {
       fileId = value.toUpperCase();
     } else {
       fileId = fileId
         .split("")
-        .map(function() {
+        .map(function () {
           return "ABCDEF0123456789".charAt(Math.floor(Math.random() * 16));
         })
         .join("");
@@ -1563,7 +1602,7 @@ function jsPDF(options) {
    * @param {string} value GUID.
    * @returns {jsPDF}
    */
-  API.setFileId = function(value) {
+  API.setFileId = function (value) {
     setFileId(value);
     return this;
   };
@@ -1576,13 +1615,13 @@ function jsPDF(options) {
    *
    * @returns {string} GUID.
    */
-  API.getFileId = function() {
+  API.getFileId = function () {
     return getFileId();
   };
 
   var creationDate;
 
-  var convertDateToPDFDate = (API.__private__.convertDateToPDFDate = function(
+  var convertDateToPDFDate = (API.__private__.convertDateToPDFDate = function (
     parmDate
   ) {
     var result = "";
@@ -1605,7 +1644,7 @@ function jsPDF(options) {
     return result;
   });
 
-  var convertPDFDateToDate = (API.__private__.convertPDFDateToDate = function(
+  var convertPDFDateToDate = (API.__private__.convertPDFDateToDate = function (
     parmPDFDate
   ) {
     var year = parseInt(parmPDFDate.substr(2, 4), 10);
@@ -1621,7 +1660,7 @@ function jsPDF(options) {
     return resultingDate;
   });
 
-  var setCreationDate = (API.__private__.setCreationDate = function(date) {
+  var setCreationDate = (API.__private__.setCreationDate = function (date) {
     var tmpCreationDateString;
     var regexPDFCreationDate = /^D:(20[0-2][0-9]|203[0-7]|19[7-9][0-9])(0[0-9]|1[0-2])([0-2][0-9]|3[0-1])(0[0-9]|1[0-9]|2[0-3])(0[0-9]|[1-5][0-9])(0[0-9]|[1-5][0-9])(\+0[0-9]|\+1[0-4]|-0[0-9]|-1[0-1])'(0[0-9]|[1-5][0-9])'?$/;
     if (typeof date === "undefined") {
@@ -1639,7 +1678,7 @@ function jsPDF(options) {
     return creationDate;
   });
 
-  var getCreationDate = (API.__private__.getCreationDate = function(type) {
+  var getCreationDate = (API.__private__.getCreationDate = function (type) {
     var result = creationDate;
     if (type === "jsDate") {
       result = convertPDFDateToDate(creationDate);
@@ -1655,7 +1694,7 @@ function jsPDF(options) {
    * @param {Object} date
    * @returns {jsPDF}
    */
-  API.setCreationDate = function(date) {
+  API.setCreationDate = function (date) {
     setCreationDate(date);
     return this;
   };
@@ -1668,15 +1707,15 @@ function jsPDF(options) {
    * @param {Object} type
    * @returns {Object}
    */
-  API.getCreationDate = function(type) {
+  API.getCreationDate = function (type) {
     return getCreationDate(type);
   };
 
-  var padd2 = (API.__private__.padd2 = function(number) {
+  var padd2 = (API.__private__.padd2 = function (number) {
     return ("0" + parseInt(number)).slice(-2);
   });
 
-  var padd2Hex = (API.__private__.padd2Hex = function(hexString) {
+  var padd2Hex = (API.__private__.padd2Hex = function (hexString) {
     hexString = hexString.toString();
     return ("00" + hexString).substr(hexString.length);
   });
@@ -1692,7 +1731,7 @@ function jsPDF(options) {
   var hasCustomDestination = false;
   var outputDestination = content;
 
-  var resetDocument = function() {
+  var resetDocument = function () {
     //reset fields relevant for objectNumber generation and xref.
     objectNumber = 0;
     contentLength = 0;
@@ -1704,22 +1743,22 @@ function jsPDF(options) {
     resourceDictionaryObjId = newObjectDeferred();
   };
 
-  API.__private__.setCustomOutputDestination = function(destination) {
+  API.__private__.setCustomOutputDestination = function (destination) {
     hasCustomDestination = true;
     outputDestination = destination;
   };
-  var setOutputDestination = function(destination) {
+  var setOutputDestination = function (destination) {
     if (!hasCustomDestination) {
       outputDestination = destination;
     }
   };
 
-  API.__private__.resetCustomOutputDestination = function() {
+  API.__private__.resetCustomOutputDestination = function () {
     hasCustomDestination = false;
     outputDestination = content;
   };
 
-  var out = (API.__private__.out = function(string) {
+  var out = (API.__private__.out = function (string) {
     string = string.toString();
     contentLength += string.length + 1;
     outputDestination.push(string);
@@ -1727,7 +1766,7 @@ function jsPDF(options) {
     return outputDestination;
   });
 
-  var write = (API.__private__.write = function(value) {
+  var write = (API.__private__.write = function (value) {
     return out(
       arguments.length === 1
         ? value.toString()
@@ -1735,7 +1774,7 @@ function jsPDF(options) {
     );
   });
 
-  var getArrayBuffer = (API.__private__.getArrayBuffer = function(data) {
+  var getArrayBuffer = (API.__private__.getArrayBuffer = function (data) {
     var len = data.length,
       ab = new ArrayBuffer(len),
       u8 = new Uint8Array(ab);
@@ -1761,7 +1800,7 @@ function jsPDF(options) {
     ["Symbol", "symbol", "normal", null]
   ];
 
-  API.__private__.getStandardFonts = function() {
+  API.__private__.getStandardFonts = function () {
     return standardFonts;
   };
 
@@ -1777,7 +1816,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setFontSize
    */
-  API.__private__.setFontSize = API.setFontSize = function(size) {
+  API.__private__.setFontSize = API.setFontSize = function (size) {
     if (apiMode === ApiMode.ADVANCED) {
       activeFontSize = size / scaleFactor;
     } else {
@@ -1795,7 +1834,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getFontSize
    */
-  var getFontSize = (API.__private__.getFontSize = API.getFontSize = function() {
+  var getFontSize = (API.__private__.getFontSize = API.getFontSize = function () {
     if (apiMode === ApiMode.COMPAT) {
       return activeFontSize;
     } else {
@@ -1815,7 +1854,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setR2L
    */
-  API.__private__.setR2L = API.setR2L = function(value) {
+  API.__private__.setR2L = API.setR2L = function (value) {
     R2L = value;
     return this;
   };
@@ -1829,13 +1868,13 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getR2L
    */
-  API.__private__.getR2L = API.getR2L = function() {
+  API.__private__.getR2L = API.getR2L = function () {
     return R2L;
   };
 
   var zoomMode; // default: 1;
 
-  var setZoomMode = (API.__private__.setZoomMode = function(zoom) {
+  var setZoomMode = (API.__private__.setZoomMode = function (zoom) {
     var validZoomModes = [
       undefined,
       null,
@@ -1854,18 +1893,18 @@ function jsPDF(options) {
     } else {
       throw new Error(
         'zoom must be Integer (e.g. 2), a percentage Value (e.g. 300%) or fullwidth, fullheight, fullpage, original. "' +
-          zoom +
-          '" is not recognized.'
+        zoom +
+        '" is not recognized.'
       );
     }
   });
 
-  API.__private__.getZoomMode = function() {
+  API.__private__.getZoomMode = function () {
     return zoomMode;
   };
 
   var pageMode; // default: 'UseOutlines';
-  var setPageMode = (API.__private__.setPageMode = function(pmode) {
+  var setPageMode = (API.__private__.setPageMode = function (pmode) {
     var validPageModes = [
       undefined,
       null,
@@ -1878,19 +1917,19 @@ function jsPDF(options) {
     if (validPageModes.indexOf(pmode) == -1) {
       throw new Error(
         'Page mode must be one of UseNone, UseOutlines, UseThumbs, or FullScreen. "' +
-          pmode +
-          '" is not recognized.'
+        pmode +
+        '" is not recognized.'
       );
     }
     pageMode = pmode;
   });
 
-  API.__private__.getPageMode = function() {
+  API.__private__.getPageMode = function () {
     return pageMode;
   };
 
   var layoutMode; // default: 'continuous';
-  var setLayoutMode = (API.__private__.setLayoutMode = function(layout) {
+  var setLayoutMode = (API.__private__.setLayoutMode = function (layout) {
     var validLayoutModes = [
       undefined,
       null,
@@ -1904,14 +1943,14 @@ function jsPDF(options) {
     if (validLayoutModes.indexOf(layout) == -1) {
       throw new Error(
         'Layout mode must be one of continuous, single, twoleft, tworight. "' +
-          layout +
-          '" is not recognized.'
+        layout +
+        '" is not recognized.'
       );
     }
     layoutMode = layout;
   });
 
-  API.__private__.getLayoutMode = function() {
+  API.__private__.getLayoutMode = function () {
     return layoutMode;
   };
 
@@ -1940,7 +1979,7 @@ function jsPDF(options) {
    *
    * @returns {jsPDF}
    */
-  API.__private__.setDisplayMode = API.setDisplayMode = function(
+  API.__private__.setDisplayMode = API.setDisplayMode = function (
     zoom,
     layout,
     pmode
@@ -1959,14 +1998,14 @@ function jsPDF(options) {
     creator: ""
   };
 
-  API.__private__.getDocumentProperty = function(key) {
+  API.__private__.getDocumentProperty = function (key) {
     if (Object.keys(documentProperties).indexOf(key) === -1) {
       throw new Error("Invalid argument passed to jsPDF.getDocumentProperty");
     }
     return documentProperties[key];
   };
 
-  API.__private__.getDocumentProperties = function() {
+  API.__private__.getDocumentProperties = function () {
     return documentProperties;
   };
 
@@ -1980,7 +2019,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setDocumentProperties
    */
-  API.__private__.setDocumentProperties = API.setProperties = API.setDocumentProperties = function(
+  API.__private__.setDocumentProperties = API.setProperties = API.setDocumentProperties = function (
     properties
   ) {
     // copying only those properties we can render.
@@ -1992,7 +2031,7 @@ function jsPDF(options) {
     return this;
   };
 
-  API.__private__.setDocumentProperty = function(key, value) {
+  API.__private__.setDocumentProperty = function (key, value) {
     if (Object.keys(documentProperties).indexOf(key) === -1) {
       throw new Error("Invalid arguments passed to jsPDF.setDocumentProperty");
     }
@@ -2038,7 +2077,7 @@ function jsPDF(options) {
    * @param {number} ty
    * @constructor
    */
-  var Matrix = function(sx, shy, shx, sy, tx, ty) {
+  var Matrix = function (sx, shy, shx, sy, tx, ty) {
     if (!(this instanceof Matrix)) {
       return new Matrix(sx, shy, shx, sy, tx, ty);
     }
@@ -2058,10 +2097,10 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "sx", {
-    get: function() {
+    get: function () {
       return this._matrix[0];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[0] = value;
     }
   });
@@ -2071,10 +2110,10 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "shy", {
-    get: function() {
+    get: function () {
       return this._matrix[1];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[1] = value;
     }
   });
@@ -2084,10 +2123,10 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "shx", {
-    get: function() {
+    get: function () {
       return this._matrix[2];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[2] = value;
     }
   });
@@ -2097,10 +2136,10 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "sy", {
-    get: function() {
+    get: function () {
       return this._matrix[3];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[3] = value;
     }
   });
@@ -2110,10 +2149,10 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "tx", {
-    get: function() {
+    get: function () {
       return this._matrix[4];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[4] = value;
     }
   });
@@ -2123,64 +2162,64 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "ty", {
-    get: function() {
+    get: function () {
       return this._matrix[5];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[5] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "a", {
-    get: function() {
+    get: function () {
       return this._matrix[0];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[0] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "b", {
-    get: function() {
+    get: function () {
       return this._matrix[1];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[1] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "c", {
-    get: function() {
+    get: function () {
       return this._matrix[2];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[2] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "d", {
-    get: function() {
+    get: function () {
       return this._matrix[3];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[3] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "e", {
-    get: function() {
+    get: function () {
       return this._matrix[4];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[4] = value;
     }
   });
 
   Object.defineProperty(Matrix.prototype, "f", {
-    get: function() {
+    get: function () {
       return this._matrix[5];
     },
-    set: function(value) {
+    set: function (value) {
       this._matrix[5] = value;
     }
   });
@@ -2190,7 +2229,7 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "rotation", {
-    get: function() {
+    get: function () {
       return Math.atan2(this.shx, this.sx);
     }
   });
@@ -2200,7 +2239,7 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "scaleX", {
-    get: function() {
+    get: function () {
       return this.decompose().scale.sx;
     }
   });
@@ -2210,7 +2249,7 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "scaleY", {
-    get: function() {
+    get: function () {
       return this.decompose().scale.sy;
     }
   });
@@ -2220,7 +2259,7 @@ function jsPDF(options) {
    * @memberof Matrix#
    */
   Object.defineProperty(Matrix.prototype, "isIdentity", {
-    get: function() {
+    get: function () {
       if (this.sx !== 1) {
         return false;
       }
@@ -2251,7 +2290,7 @@ function jsPDF(options) {
    * @returns {string} A string with all array elements joined.
    * @memberof Matrix#
    */
-  Matrix.prototype.join = function(separator) {
+  Matrix.prototype.join = function (separator) {
     return [this.sx, this.shy, this.shx, this.sy, this.tx, this.ty]
       .map(hpf)
       .join(separator);
@@ -2265,7 +2304,7 @@ function jsPDF(options) {
    * @returns {Matrix}
    * @memberof Matrix#
    */
-  Matrix.prototype.multiply = function(matrix) {
+  Matrix.prototype.multiply = function (matrix) {
     var sx = matrix.sx * this.sx + matrix.shy * this.shx;
     var shy = matrix.sx * this.shy + matrix.shy * this.sy;
     var shx = matrix.shx * this.sx + matrix.sy * this.shx;
@@ -2280,7 +2319,7 @@ function jsPDF(options) {
    * @function decompose
    * @memberof Matrix#
    */
-  Matrix.prototype.decompose = function() {
+  Matrix.prototype.decompose = function () {
     var a = this.sx;
     var b = this.shy;
     var c = this.shx;
@@ -2320,7 +2359,7 @@ function jsPDF(options) {
    * @function toString
    * @memberof Matrix#
    */
-  Matrix.prototype.toString = function(parmPrecision) {
+  Matrix.prototype.toString = function (parmPrecision) {
     return this.join(" ");
   };
 
@@ -2328,7 +2367,7 @@ function jsPDF(options) {
    * @function inversed
    * @memberof Matrix#
    */
-  Matrix.prototype.inversed = function() {
+  Matrix.prototype.inversed = function () {
     var a = this.sx,
       b = this.shy,
       c = this.shx,
@@ -2352,7 +2391,7 @@ function jsPDF(options) {
    * @function applyToPoint
    * @memberof Matrix#
    */
-  Matrix.prototype.applyToPoint = function(pt) {
+  Matrix.prototype.applyToPoint = function (pt) {
     var x = pt.x * this.sx + pt.y * this.shx + this.tx;
     var y = pt.x * this.shy + pt.y * this.sy + this.ty;
     return new Point(x, y);
@@ -2362,7 +2401,7 @@ function jsPDF(options) {
    * @function applyToRectangle
    * @memberof Matrix#
    */
-  Matrix.prototype.applyToRectangle = function(rect) {
+  Matrix.prototype.applyToRectangle = function (rect) {
     var pt1 = this.applyToPoint(rect);
     var pt2 = this.applyToPoint(new Point(rect.x + rect.w, rect.y + rect.h));
     return new Rectangle(pt1.x, pt1.y, pt2.x - pt1.x, pt2.y - pt1.y);
@@ -2376,7 +2415,7 @@ function jsPDF(options) {
    * @name clone
    * @instance
    */
-  Matrix.prototype.clone = function() {
+  Matrix.prototype.clone = function () {
     var sx = this.sx;
     var shy = this.shy;
     var shx = this.shx;
@@ -2396,7 +2435,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name matrixMult
    */
-  var matrixMult = (API.matrixMult = function(m1, m2) {
+  var matrixMult = (API.matrixMult = function (m1, m2) {
     return m2.multiply(m1);
   });
 
@@ -2414,7 +2453,7 @@ function jsPDF(options) {
    * @param {String} key The key by it can be referenced later. The keys must be unique!
    * @param {API.Pattern} pattern The pattern
    */
-  var addPattern = function(key, pattern) {
+  var addPattern = function (key, pattern) {
     // only add it if it is not already present (the keys provided by the user must be unique!)
     if (patternMap[key]) return;
 
@@ -2471,7 +2510,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name addPattern
    */
-  API.addShadingPattern = function(key, pattern) {
+  API.addShadingPattern = function (key, pattern) {
     advancedApiModeTrap("addShadingPattern()");
 
     addPattern(key, pattern);
@@ -2485,7 +2524,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name beginTilingPattern
    */
-  API.beginTilingPattern = function(pattern) {
+  API.beginTilingPattern = function (pattern) {
     advancedApiModeTrap("beginTilingPattern()");
 
     beginNewRenderTarget(
@@ -2507,7 +2546,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name endTilingPattern
    */
-  API.endTilingPattern = function(key, pattern) {
+  API.endTilingPattern = function (key, pattern) {
     advancedApiModeTrap("endTilingPattern()");
 
     // retrieve the stream
@@ -2521,22 +2560,22 @@ function jsPDF(options) {
     renderTargetStack.pop().restore();
   };
 
-  var newObject = (API.__private__.newObject = function() {
+  var newObject = (API.__private__.newObject = function () {
     var oid = newObjectDeferred();
     newObjectDeferredBegin(oid, true);
     return oid;
   });
 
   // Does not output the object.  The caller must call newObjectDeferredBegin(oid) before outputing any data
-  var newObjectDeferred = (API.__private__.newObjectDeferred = function() {
+  var newObjectDeferred = (API.__private__.newObjectDeferred = function () {
     objectNumber++;
-    offsets[objectNumber] = function() {
+    offsets[objectNumber] = function () {
       return contentLength;
     };
     return objectNumber;
   });
 
-  var newObjectDeferredBegin = function(oid, doOutput) {
+  var newObjectDeferredBegin = function (oid, doOutput) {
     doOutput = typeof doOutput === "boolean" ? doOutput : false;
     offsets[oid] = contentLength;
     if (doOutput) {
@@ -2548,7 +2587,7 @@ function jsPDF(options) {
   // Returns an object containing the objectId and content.
   // All pages have been added so the object ID can be estimated to start right after.
   // This does not modify the current objectNumber;  It must be updated after the newObjects are output.
-  var newAdditionalObject = (API.__private__.newAdditionalObject = function() {
+  var newAdditionalObject = (API.__private__.newAdditionalObject = function () {
     var objId = newObjectDeferred();
     var obj = {
       objId: objId,
@@ -2565,7 +2604,7 @@ function jsPDF(options) {
   // Private functions
   /////////////////////
 
-  var decodeColorString = (API.__private__.decodeColorString = function(color) {
+  var decodeColorString = (API.__private__.decodeColorString = function (color) {
     var colorEncoded = color.split(" ");
     if (
       colorEncoded.length === 2 &&
@@ -2594,7 +2633,7 @@ function jsPDF(options) {
     return colorAsRGB;
   });
 
-  var encodeColorString = (API.__private__.encodeColorString = function(
+  var encodeColorString = (API.__private__.encodeColorString = function (
     options
   ) {
     var color;
@@ -2705,11 +2744,11 @@ function jsPDF(options) {
     return color;
   });
 
-  var getFilters = (API.__private__.getFilters = function() {
+  var getFilters = (API.__private__.getFilters = function () {
     return filters;
   });
 
-  var putStream = (API.__private__.putStream = function(options) {
+  var putStream = (API.__private__.putStream = function (options) {
     options = options || {};
     var data = options.data || "";
     var filters = options.filters || getFilters();
@@ -2717,7 +2756,7 @@ function jsPDF(options) {
     var addLength1 = options.addLength1 || false;
     var valueOfLength1 = data.length;
     var objectId = options.objectId;
-    var encryptor = function(data) {
+    var encryptor = function (data) {
       return data;
     };
     if (encryptionOptions !== null && typeof objectId == "undefined") {
@@ -2801,7 +2840,7 @@ function jsPDF(options) {
     }
   });
 
-  var putPage = (API.__private__.putPage = function(page) {
+  var putPage = (API.__private__.putPage = function (page) {
     var pageNumber = page.number;
     var data = page.data;
     var pageObjectNumber = page.objId;
@@ -2813,68 +2852,68 @@ function jsPDF(options) {
     out("/Resources " + page.resourceDictionaryObjId + " 0 R");
     out(
       "/MediaBox [" +
-        parseFloat(hpf(page.mediaBox.bottomLeftX)) +
-        " " +
-        parseFloat(hpf(page.mediaBox.bottomLeftY)) +
-        " " +
-        hpf(page.mediaBox.topRightX) +
-        " " +
-        hpf(page.mediaBox.topRightY) +
-        "]"
+      parseFloat(hpf(page.mediaBox.bottomLeftX)) +
+      " " +
+      parseFloat(hpf(page.mediaBox.bottomLeftY)) +
+      " " +
+      hpf(page.mediaBox.topRightX) +
+      " " +
+      hpf(page.mediaBox.topRightY) +
+      "]"
     );
     if (page.cropBox !== null) {
       out(
         "/CropBox [" +
-          hpf(page.cropBox.bottomLeftX) +
-          " " +
-          hpf(page.cropBox.bottomLeftY) +
-          " " +
-          hpf(page.cropBox.topRightX) +
-          " " +
-          hpf(page.cropBox.topRightY) +
-          "]"
+        hpf(page.cropBox.bottomLeftX) +
+        " " +
+        hpf(page.cropBox.bottomLeftY) +
+        " " +
+        hpf(page.cropBox.topRightX) +
+        " " +
+        hpf(page.cropBox.topRightY) +
+        "]"
       );
     }
 
     if (page.bleedBox !== null) {
       out(
         "/BleedBox [" +
-          hpf(page.bleedBox.bottomLeftX) +
-          " " +
-          hpf(page.bleedBox.bottomLeftY) +
-          " " +
-          hpf(page.bleedBox.topRightX) +
-          " " +
-          hpf(page.bleedBox.topRightY) +
-          "]"
+        hpf(page.bleedBox.bottomLeftX) +
+        " " +
+        hpf(page.bleedBox.bottomLeftY) +
+        " " +
+        hpf(page.bleedBox.topRightX) +
+        " " +
+        hpf(page.bleedBox.topRightY) +
+        "]"
       );
     }
 
     if (page.trimBox !== null) {
       out(
         "/TrimBox [" +
-          hpf(page.trimBox.bottomLeftX) +
-          " " +
-          hpf(page.trimBox.bottomLeftY) +
-          " " +
-          hpf(page.trimBox.topRightX) +
-          " " +
-          hpf(page.trimBox.topRightY) +
-          "]"
+        hpf(page.trimBox.bottomLeftX) +
+        " " +
+        hpf(page.trimBox.bottomLeftY) +
+        " " +
+        hpf(page.trimBox.topRightX) +
+        " " +
+        hpf(page.trimBox.topRightY) +
+        "]"
       );
     }
 
     if (page.artBox !== null) {
       out(
         "/ArtBox [" +
-          hpf(page.artBox.bottomLeftX) +
-          " " +
-          hpf(page.artBox.bottomLeftY) +
-          " " +
-          hpf(page.artBox.topRightX) +
-          " " +
-          hpf(page.artBox.topRightY) +
-          "]"
+        hpf(page.artBox.bottomLeftX) +
+        " " +
+        hpf(page.artBox.bottomLeftY) +
+        " " +
+        hpf(page.artBox.topRightX) +
+        " " +
+        hpf(page.artBox.topRightY) +
+        "]"
       );
     }
 
@@ -2909,7 +2948,7 @@ function jsPDF(options) {
     return pageObjectNumber;
   });
 
-  var putPages = (API.__private__.putPages = function() {
+  var putPages = (API.__private__.putPages = function () {
     var n,
       i,
       pageObjectNumbers = [];
@@ -2950,27 +2989,19 @@ function jsPDF(options) {
     events.publish("postPutPages");
   });
 
-  var putFont = function(font) {
-    var pdfEscapeWithNeededParanthesis = function(text, flags) {
-      var addParanthesis = text.indexOf(" ") !== -1; // no space in string
-      return addParanthesis
-        ? "(" + pdfEscape(text, flags) + ")"
-        : pdfEscape(text, flags);
-    };
-
+  var putFont = function (font) {
     events.publish("putFont", {
       font: font,
       out: out,
       newObject: newObject,
-      putStream: putStream,
-      pdfEscapeWithNeededParanthesis: pdfEscapeWithNeededParanthesis
+      putStream: putStream
     });
 
     if (font.isAlreadyPutted !== true) {
       font.objectNumber = newObject();
       out("<<");
       out("/Type /Font");
-      out("/BaseFont /" + pdfEscapeWithNeededParanthesis(font.postScriptName));
+      out("/BaseFont /" + toPDFName(font.postScriptName));
       out("/Subtype /Type1");
       if (typeof font.encoding === "string") {
         out("/Encoding /" + font.encoding);
@@ -2982,7 +3013,7 @@ function jsPDF(options) {
     }
   };
 
-  var putFonts = function() {
+  var putFonts = function () {
     for (var fontKey in fonts) {
       if (fonts.hasOwnProperty(fontKey)) {
         if (
@@ -2995,7 +3026,7 @@ function jsPDF(options) {
     }
   };
 
-  var putXObject = function(xObject) {
+  var putXObject = function (xObject) {
     xObject.objectNumber = newObject();
 
     var options = [];
@@ -3028,7 +3059,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putXObjects = function() {
+  var putXObjects = function () {
     for (var xObjectKey in renderTargets) {
       if (renderTargets.hasOwnProperty(xObjectKey)) {
         putXObject(renderTargets[xObjectKey]);
@@ -3036,7 +3067,7 @@ function jsPDF(options) {
     }
   };
 
-  var interpolateAndEncodeRGBStream = function(colors, numberSamples) {
+  var interpolateAndEncodeRGBStream = function (colors, numberSamples) {
     var tValues = [];
     var t;
     var dT = 1.0 / (numberSamples - 1);
@@ -3080,7 +3111,7 @@ function jsPDF(options) {
     return out.trim();
   };
 
-  var putShadingPattern = function(pattern, numberSamples) {
+  var putShadingPattern = function (pattern, numberSamples) {
     /*
        Axial patterns shade between the two points specified in coords, radial patterns between the inner
        and outer circle.
@@ -3147,7 +3178,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putTilingPattern = function(pattern, deferredResourceDictionaryIds) {
+  var putTilingPattern = function (pattern, deferredResourceDictionaryIds) {
     var resourcesObjectId = newObjectDeferred();
     var patternObjectId = newObject();
 
@@ -3184,7 +3215,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putPatterns = function(deferredResourceDictionaryIds) {
+  var putPatterns = function (deferredResourceDictionaryIds) {
     var patternKey;
     for (patternKey in patterns) {
       if (patterns.hasOwnProperty(patternKey)) {
@@ -3197,7 +3228,7 @@ function jsPDF(options) {
     }
   };
 
-  var putGState = function(gState) {
+  var putGState = function (gState) {
     gState.objectNumber = newObject();
     out("<<");
     for (var p in gState) {
@@ -3214,7 +3245,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putGStates = function() {
+  var putGStates = function () {
     var gStateKey;
     for (gStateKey in gStates) {
       if (gStates.hasOwnProperty(gStateKey)) {
@@ -3223,7 +3254,7 @@ function jsPDF(options) {
     }
   };
 
-  var putXobjectDict = function() {
+  var putXobjectDict = function () {
     out("/XObject <<");
     for (var xObjectKey in renderTargets) {
       if (
@@ -3232,10 +3263,10 @@ function jsPDF(options) {
       ) {
         out(
           "/" +
-            xObjectKey +
-            " " +
-            renderTargets[xObjectKey].objectNumber +
-            " 0 R"
+          xObjectKey +
+          " " +
+          renderTargets[xObjectKey].objectNumber +
+          " 0 R"
         );
       }
     }
@@ -3245,7 +3276,7 @@ function jsPDF(options) {
     out(">>");
   };
 
-  var putEncryptionDict = function() {
+  var putEncryptionDict = function () {
     encryption.oid = newObject();
     out("<<");
     out("/Filter /Standard");
@@ -3258,7 +3289,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putFontDict = function() {
+  var putFontDict = function () {
     out("/Font <<");
 
     for (var fontKey in fonts) {
@@ -3274,7 +3305,7 @@ function jsPDF(options) {
     out(">>");
   };
 
-  var putShadingPatternDict = function() {
+  var putShadingPatternDict = function () {
     if (Object.keys(patterns).length > 0) {
       out("/Shading <<");
       for (var patternKey in patterns) {
@@ -3294,7 +3325,7 @@ function jsPDF(options) {
     }
   };
 
-  var putTilingPatternDict = function(objectOid) {
+  var putTilingPatternDict = function (objectOid) {
     if (Object.keys(patterns).length > 0) {
       out("/Pattern <<");
       for (var patternKey in patterns) {
@@ -3314,7 +3345,7 @@ function jsPDF(options) {
     }
   };
 
-  var putGStatesDict = function() {
+  var putGStatesDict = function () {
     if (Object.keys(gStates).length > 0) {
       var gStateKey;
       out("/ExtGState <<");
@@ -3332,7 +3363,7 @@ function jsPDF(options) {
     }
   };
 
-  var putResourceDictionary = function(objectIds) {
+  var putResourceDictionary = function (objectIds) {
     newObjectDeferredBegin(objectIds.resourcesOid, true);
     out("<<");
     out("/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]");
@@ -3345,7 +3376,7 @@ function jsPDF(options) {
     out("endobj");
   };
 
-  var putResources = function() {
+  var putResources = function () {
     // FormObjects, Patterns etc. might use other FormObjects/Patterns/Images
     // which means their resource dictionaries must contain the already resolved
     // object ids. For this reason we defer the serialization of the resource
@@ -3374,7 +3405,7 @@ function jsPDF(options) {
     events.publish("postPutResources");
   };
 
-  var putAdditionalObjects = function() {
+  var putAdditionalObjects = function () {
     events.publish("putAdditionalObjects");
     for (var i = 0; i < additionalObjects.length; i++) {
       var obj = additionalObjects[i];
@@ -3385,12 +3416,12 @@ function jsPDF(options) {
     events.publish("postPutAdditionalObjects");
   };
 
-  var addFontToFontDictionary = function(font) {
+  var addFontToFontDictionary = function (font) {
     fontmap[font.fontName] = fontmap[font.fontName] || {};
     fontmap[font.fontName][font.fontStyle] = font.id;
   };
 
-  var addFont = function(
+  var addFont = function (
     postScriptName,
     fontName,
     fontStyle,
@@ -3417,7 +3448,7 @@ function jsPDF(options) {
     return font.id;
   };
 
-  var addFonts = function(arrayOfFonts) {
+  var addFonts = function (arrayOfFonts) {
     for (var i = 0, l = standardFonts.length; i < l; i++) {
       var fontKey = addFont.call(
         this,
@@ -3469,7 +3500,7 @@ function jsPDF(options) {
     return fn.foo;
   };
 
-  var to8bitStream = function(text, flags) {
+  var to8bitStream = function (text, flags) {
     /**
      * PDF 1.3 spec:
      * "For text strings encoded in Unicode, the first two bytes must be 254 followed by
@@ -3608,10 +3639,10 @@ function jsPDF(options) {
         /* something left after dividing by 256 second time */
         throw new Error(
           "Character at position " +
-            i +
-            " of string '" +
-            text +
-            "' exceeds 16bits. Cannot be encoded into UCS-2 BE"
+          i +
+          " of string '" +
+          text +
+          "' exceeds 16bits. Cannot be encoded into UCS-2 BE"
         );
       }
       newtext.push(bch);
@@ -3620,7 +3651,7 @@ function jsPDF(options) {
     return String.fromCharCode.apply(undefined, newtext);
   };
 
-  var pdfEscape = (API.__private__.pdfEscape = API.pdfEscape = function(
+  var pdfEscape = (API.__private__.pdfEscape = API.pdfEscape = function (
     text,
     flags
   ) {
@@ -3643,7 +3674,7 @@ function jsPDF(options) {
       .replace(/\)/g, "\\)");
   });
 
-  var beginPage = (API.__private__.beginPage = function(format) {
+  var beginPage = (API.__private__.beginPage = function (format) {
     pages[++page] = [];
     pagesContext[page] = {
       objId: 0,
@@ -3664,7 +3695,7 @@ function jsPDF(options) {
     setOutputDestination(pages[currentPage]);
   });
 
-  var _addPage = function(parmFormat, parmOrientation) {
+  var _addPage = function (parmFormat, parmOrientation) {
     var dimensions, width, height;
 
     orientation = parmOrientation || orientation;
@@ -3697,18 +3728,7 @@ function jsPDF(options) {
 
     format = [width, height];
 
-    switch (orientation.substr(0, 1)) {
-      case "l":
-        if (height > width) {
-          format = [height, width];
-        }
-        break;
-      case "p":
-        if (width > height) {
-          format = [height, width];
-        }
-        break;
-    }
+
 
     beginPage(format);
 
@@ -3728,7 +3748,7 @@ function jsPDF(options) {
     });
   };
 
-  var _deletePage = function(n) {
+  var _deletePage = function (n) {
     if (n > 0 && n <= page) {
       pages.splice(n, 1);
       pagesContext.splice(n, 1);
@@ -3740,13 +3760,13 @@ function jsPDF(options) {
     }
   };
 
-  var _setPage = function(n) {
+  var _setPage = function (n) {
     if (n > 0 && n <= page) {
       currentPage = n;
     }
   };
 
-  var getNumberOfPages = (API.__private__.getNumberOfPages = API.getNumberOfPages = function() {
+  var getNumberOfPages = (API.__private__.getNumberOfPages = API.getNumberOfPages = function () {
     return pages.length - 1;
   });
 
@@ -3764,7 +3784,7 @@ function jsPDF(options) {
    * @returns {string} Font key.
    * @ignore
    */
-  var getFont = function(fontName, fontStyle, options) {
+  var getFont = function (fontName, fontStyle, options) {
     var key = undefined,
       fontNameLowerCase;
     options = options || {};
@@ -3789,10 +3809,10 @@ function jsPDF(options) {
       if (options.disableWarning === false) {
         console.warn(
           "Unable to look up font label for font '" +
-            fontName +
-            "', '" +
-            fontStyle +
-            "'. Refer to getFontList() for available fonts."
+          fontName +
+          "', '" +
+          fontStyle +
+          "'. Refer to getFontList() for available fonts."
         );
       }
     }
@@ -3806,9 +3826,9 @@ function jsPDF(options) {
     return key;
   };
 
-  var putInfo = (API.__private__.putInfo = function() {
+  var putInfo = (API.__private__.putInfo = function () {
     var objectId = newObject();
-    var encryptor = function(data) {
+    var encryptor = function (data) {
       return data;
     };
     if (encryptionOptions !== null) {
@@ -3820,11 +3840,11 @@ function jsPDF(options) {
       if (documentProperties.hasOwnProperty(key) && documentProperties[key]) {
         out(
           "/" +
-            key.substr(0, 1).toUpperCase() +
-            key.substr(1) +
-            " (" +
-            pdfEscape(encryptor(documentProperties[key])) +
-            ")"
+          key.substr(0, 1).toUpperCase() +
+          key.substr(1) +
+          " (" +
+          pdfEscape(encryptor(documentProperties[key])) +
+          ")"
         );
       }
     }
@@ -3833,7 +3853,7 @@ function jsPDF(options) {
     out("endobj");
   });
 
-  var putCatalog = (API.__private__.putCatalog = function(options) {
+  var putCatalog = (API.__private__.putCatalog = function (options) {
     options = options || {};
     var tmpRootDictionaryObjId =
       options.rootDictionaryObjId || rootDictionaryObjId;
@@ -3895,7 +3915,7 @@ function jsPDF(options) {
     out("endobj");
   });
 
-  var putTrailer = (API.__private__.putTrailer = function() {
+  var putTrailer = (API.__private__.putTrailer = function () {
     out("trailer");
     out("<<");
     out("/Size " + (objectNumber + 1));
@@ -3909,12 +3929,12 @@ function jsPDF(options) {
     out(">>");
   });
 
-  var putHeader = (API.__private__.putHeader = function() {
+  var putHeader = (API.__private__.putHeader = function () {
     out("%PDF-" + pdfVersion);
     out("%\xBA\xDF\xAC\xE0");
   });
 
-  var putXRef = (API.__private__.putXRef = function() {
+  var putXRef = (API.__private__.putXRef = function () {
     var p = "0000000000";
 
     out("xref");
@@ -3934,7 +3954,7 @@ function jsPDF(options) {
     }
   });
 
-  var buildDocument = (API.__private__.buildDocument = function() {
+  var buildDocument = (API.__private__.buildDocument = function () {
     resetDocument();
     setOutputDestination(content);
 
@@ -3960,7 +3980,7 @@ function jsPDF(options) {
     return content.join("\n");
   });
 
-  var getBlob = (API.__private__.getBlob = function(data) {
+  var getBlob = (API.__private__.getBlob = function (data) {
     return new Blob([getArrayBuffer(data)], {
       type: "application/pdf"
     });
@@ -4095,7 +4115,7 @@ function jsPDF(options) {
             var scope = this;
             PDFjsNewWindow.document.documentElement.querySelector(
               "#pdfViewer"
-            ).onload = function() {
+            ).onload = function () {
               PDFjsNewWindow.document.title = options.filename;
               PDFjsNewWindow.document.documentElement
                 .querySelector("#pdfViewer")
@@ -4151,7 +4171,7 @@ function jsPDF(options) {
    * @param {string} hotfixName - The name of the hotfix to check.
    * @returns {boolean}
    */
-  var hasHotfix = function(hotfixName) {
+  var hasHotfix = function (hotfixName) {
     return (
       Array.isArray(hotfixes) === true && hotfixes.indexOf(hotfixName) > -1
     );
@@ -4194,11 +4214,11 @@ function jsPDF(options) {
   setCreationDate();
   setFileId();
 
-  var getEncryptor = function(objectId) {
+  var getEncryptor = function (objectId) {
     if (encryptionOptions !== null) {
       return encryption.encryptor(objectId, 0);
     }
-    return function(data) {
+    return function (data) {
       return data;
     };
   };
@@ -4206,7 +4226,7 @@ function jsPDF(options) {
   //---------------------------------------
   // Public API
 
-  var getPageInfo = (API.__private__.getPageInfo = API.getPageInfo = function(
+  var getPageInfo = (API.__private__.getPageInfo = API.getPageInfo = function (
     pageNumberOneBased
   ) {
     if (isNaN(pageNumberOneBased) || pageNumberOneBased % 1 !== 0) {
@@ -4220,7 +4240,7 @@ function jsPDF(options) {
     };
   });
 
-  var getPageInfoByObjId = (API.__private__.getPageInfoByObjId = function(
+  var getPageInfoByObjId = (API.__private__.getPageInfoByObjId = function (
     objId
   ) {
     if (isNaN(objId) || objId % 1 !== 0) {
@@ -4234,7 +4254,7 @@ function jsPDF(options) {
     return getPageInfo(pageNumber);
   });
 
-  var getCurrentPageInfo = (API.__private__.getCurrentPageInfo = API.getCurrentPageInfo = function() {
+  var getCurrentPageInfo = (API.__private__.getCurrentPageInfo = API.getCurrentPageInfo = function () {
     return {
       objId: pagesContext[currentPage].objId,
       pageNumber: currentPage,
@@ -4254,7 +4274,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name addPage
    */
-  API.addPage = function() {
+  API.addPage = function () {
     _addPage.apply(this, arguments);
     return this;
   };
@@ -4275,7 +4295,7 @@ function jsPDF(options) {
    * doc.setPage(1)
    * doc.text('I am on page 1', 10, 10)
    */
-  API.setPage = function() {
+  API.setPage = function () {
     _setPage.apply(this, arguments);
     setOutputDestination.call(this, pages[currentPage]);
     return this;
@@ -4290,7 +4310,7 @@ function jsPDF(options) {
    * @param {Object} beforePage
    * @returns {jsPDF}
    */
-  API.insertPage = function(beforePage) {
+  API.insertPage = function (beforePage) {
     this.addPage();
     this.movePage(currentPage, beforePage);
     return this;
@@ -4305,7 +4325,7 @@ function jsPDF(options) {
    * @param {number} beforePage
    * @returns {jsPDF}
    */
-  API.movePage = function(targetPage, beforePage) {
+  API.movePage = function (targetPage, beforePage) {
     var tmpPages, tmpPagesContext;
     if (targetPage > beforePage) {
       tmpPages = pages[targetPage];
@@ -4340,7 +4360,7 @@ function jsPDF(options) {
    * @instance
    * @returns {jsPDF}
    */
-  API.deletePage = function() {
+  API.deletePage = function () {
     _deletePage.apply(this, arguments);
     return this;
   };
@@ -4380,7 +4400,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name text
    */
-  API.__private__.text = API.text = function(text, x, y, options, transform) {
+  API.__private__.text = API.text = function (text, x, y, options, transform) {
     /*
      * Inserts something like this into PDF
      *   BT
@@ -4549,8 +4569,8 @@ function jsPDF(options) {
     if (textIsOfTypeString === false) {
       throw new Error(
         'Type of text must be string or Array. "' +
-          text +
-          '" is not recognized.'
+        text +
+        '" is not recognized.'
       );
     }
 
@@ -4594,7 +4614,7 @@ function jsPDF(options) {
       if (typeof text === "string") {
         text = scope.splitTextToSize(text, maxWidth);
       } else if (Object.prototype.toString.call(text) === "[object Array]") {
-        text = text.reduce(function(acc, textLine) {
+        text = text.reduce(function (acc, textLine) {
           return acc.concat(scope.splitTextToSize(textLine, maxWidth));
         }, []);
       }
@@ -4658,7 +4678,7 @@ function jsPDF(options) {
 
     //lang
 
-    var lang = options.lang;
+    options.lang;
 
     //renderingMode
     var renderingMode = -1;
@@ -4741,7 +4761,7 @@ function jsPDF(options) {
       da = transformTextToSpecialArray(text);
       var newY;
       if (align !== "left") {
-        lineWidths = da.map(function(v) {
+        lineWidths = da.map(function (v) {
           return (
             (scope.getStringUnitWidth(v, {
               font: activeFont,
@@ -4815,6 +4835,8 @@ function jsPDF(options) {
                 )
               )
             );
+          } else {
+            wordSpacingPerLine.push(0);
           }
           text.push([da[l], newX, newY]);
         }
@@ -4828,7 +4850,7 @@ function jsPDF(options) {
     //R2L
     var doReversing = typeof options.R2L === "boolean" ? options.R2L : R2L;
     if (doReversing === true) {
-      text = processTextByFunction(text, function(text, posX, posY) {
+      text = processTextByFunction(text, function (text, posX, posY) {
         return [
           text
             .split("")
@@ -4865,7 +4887,7 @@ function jsPDF(options) {
       activeFontEncoding === "WinAnsiEncoding" ||
       activeFontEncoding === "StandardEncoding"
     ) {
-      text = processTextByFunction(text, function(text, posX, posY) {
+      text = processTextByFunction(text, function (text, posX, posY) {
         return [ESC(text), posX, posY];
       });
     }
@@ -4881,7 +4903,7 @@ function jsPDF(options) {
     var content;
     var wordSpacing = "";
 
-    var generatePosition = function(
+    var generatePosition = function (
       parmPosX,
       parmPosY,
       parmTransformationMatrix
@@ -4944,16 +4966,16 @@ function jsPDF(options) {
       if (lineIndex === 0) {
         text.push(
           wordSpacing +
-            generatePosition(posX, posY, transformationMatrix) +
-            content
+          generatePosition(posX, posY, transformationMatrix) +
+          content
         );
       } else if (variant === STRING) {
         text.push(wordSpacing + content);
       } else if (variant === ARRAY) {
         text.push(
           wordSpacing +
-            generatePosition(posX, posY, transformationMatrix) +
-            content
+          generatePosition(posX, posY, transformationMatrix) +
+          content
         );
       }
     }
@@ -5000,7 +5022,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @description All .clip() after calling drawing ops with a style argument of null.
    */
-  var clip = (API.__private__.clip = API.clip = function(rule) {
+  var clip = (API.__private__.clip = API.clip = function (rule) {
     // Call .clip() after calling drawing ops with a style argument of null
     // W is the PDF clipping op
     if ("evenodd" === rule) {
@@ -5021,7 +5043,7 @@ function jsPDF(options) {
    * that this will NOT consume the current path. In order to only use this path for clipping call
    * {@link API.discardPath} afterwards.
    */
-  API.clipEvenOdd = function() {
+  API.clipEvenOdd = function () {
     return clip("evenodd");
   };
 
@@ -5034,12 +5056,12 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.__private__.discardPath = API.discardPath = function() {
+  API.__private__.discardPath = API.discardPath = function () {
     out("n");
     return this;
   };
 
-  var isValidStyle = (API.__private__.isValidStyle = function(style) {
+  var isValidStyle = (API.__private__.isValidStyle = function (style) {
     var validStyleVariants = [
       undefined,
       null,
@@ -5061,7 +5083,7 @@ function jsPDF(options) {
     return result;
   });
 
-  API.__private__.setDefaultPathOperation = API.setDefaultPathOperation = function(
+  API.__private__.setDefaultPathOperation = API.setDefaultPathOperation = function (
     operator
   ) {
     if (isValidStyle(operator)) {
@@ -5070,7 +5092,7 @@ function jsPDF(options) {
     return this;
   };
 
-  var getStyle = (API.__private__.getStyle = API.getStyle = function(style) {
+  var getStyle = (API.__private__.getStyle = API.getStyle = function (style) {
     // see path-painting operators in PDF spec
     var op = defaultPathOperation; // stroke
 
@@ -5111,7 +5133,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  var close = (API.close = function() {
+  var close = (API.close = function () {
     out("h");
     return this;
   });
@@ -5124,7 +5146,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.stroke = function() {
+  API.stroke = function () {
     out("S");
     return this;
   };
@@ -5139,7 +5161,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.fill = function(pattern) {
+  API.fill = function (pattern) {
     fillWithOptionalPattern("f", pattern);
     return this;
   };
@@ -5154,7 +5176,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.fillEvenOdd = function(pattern) {
+  API.fillEvenOdd = function (pattern) {
     fillWithOptionalPattern("f*", pattern);
     return this;
   };
@@ -5169,7 +5191,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.fillStroke = function(pattern) {
+  API.fillStroke = function (pattern) {
     fillWithOptionalPattern("B", pattern);
     return this;
   };
@@ -5184,12 +5206,12 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.fillStrokeEvenOdd = function(pattern) {
+  API.fillStrokeEvenOdd = function (pattern) {
     fillWithOptionalPattern("B*", pattern);
     return this;
   };
 
-  var fillWithOptionalPattern = function(style, pattern) {
+  var fillWithOptionalPattern = function (style, pattern) {
     if (typeof pattern === "object") {
       fillWithPattern(pattern, style);
     } else {
@@ -5197,7 +5219,7 @@ function jsPDF(options) {
     }
   };
 
-  var putStyle = function(style) {
+  var putStyle = function (style) {
     if (
       style === null ||
       (apiMode === ApiMode.ADVANCED && style === undefined)
@@ -5225,7 +5247,7 @@ function jsPDF(options) {
     return clone;
   }
 
-  var fillWithPattern = function(patternData, style) {
+  var fillWithPattern = function (patternData, style) {
     var patternId = patternMap[patternData.key];
     var pattern = patterns[patternId];
 
@@ -5272,7 +5294,7 @@ function jsPDF(options) {
     }
   };
 
-  var clipRuleFromStyle = function(style) {
+  var clipRuleFromStyle = function (style) {
     switch (style) {
       case "f":
       case "F":
@@ -5303,7 +5325,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @returns {jsPDF}
    */
-  var moveTo = (API.moveTo = function(x, y) {
+  var moveTo = (API.moveTo = function (x, y) {
     out(hpf(scale(x)) + " " + hpf(transformScaleY(y)) + " m");
     return this;
   });
@@ -5319,7 +5341,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @returns {jsPDF}
    */
-  var lineTo = (API.lineTo = function(x, y) {
+  var lineTo = (API.lineTo = function (x, y) {
     out(hpf(scale(x)) + " " + hpf(transformScaleY(y)) + " l");
     return this;
   });
@@ -5340,7 +5362,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @returns {jsPDF}
    */
-  var curveTo = (API.curveTo = function(x1, y1, x2, y2, x3, y3) {
+  var curveTo = (API.curveTo = function (x1, y1, x2, y2, x3, y3) {
     out(
       [
         hpf(scale(x1)),
@@ -5369,7 +5391,7 @@ function jsPDF(options) {
    * @returns {jsPDF}
    * @memberof jsPDF#
    */
-  API.__private__.line = API.line = function(x1, y1, x2, y2, style) {
+  API.__private__.line = API.line = function (x1, y1, x2, y2, style) {
     if (
       isNaN(x1) ||
       isNaN(y1) ||
@@ -5421,7 +5443,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name lines
    */
-  API.__private__.lines = API.lines = function(
+  API.__private__.lines = API.lines = function (
     lines,
     x,
     y,
@@ -5506,7 +5528,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name path
    */
-  API.path = function(lines) {
+  API.path = function (lines) {
     for (var i = 0; i < lines.length; i++) {
       var leg = lines[i];
       var coords = leg.c;
@@ -5550,7 +5572,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name rect
    */
-  API.__private__.rect = API.rect = function(x, y, w, h, style) {
+  API.__private__.rect = API.rect = function (x, y, w, h, style) {
     if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || !isValidStyle(style)) {
       throw new Error("Invalid arguments passed to jsPDF.rect");
     }
@@ -5595,7 +5617,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name triangle
    */
-  API.__private__.triangle = API.triangle = function(
+  API.__private__.triangle = API.triangle = function (
     x1,
     y1,
     x2,
@@ -5653,7 +5675,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name roundedRect
    */
-  API.__private__.roundedRect = API.roundedRect = function(
+  API.__private__.roundedRect = API.roundedRect = function (
     x,
     y,
     w,
@@ -5719,7 +5741,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name ellipse
    */
-  API.__private__.ellipse = API.ellipse = function(x, y, rx, ry, style) {
+  API.__private__.ellipse = API.ellipse = function (x, y, rx, ry, style) {
     if (
       isNaN(x) ||
       isNaN(y) ||
@@ -5762,7 +5784,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name circle
    */
-  API.__private__.circle = API.circle = function(x, y, r, style) {
+  API.__private__.circle = API.circle = function (x, y, r, style) {
     if (isNaN(x) || isNaN(y) || isNaN(r) || !isValidStyle(style)) {
       throw new Error("Invalid arguments passed to jsPDF.circle");
     }
@@ -5782,7 +5804,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setFont
    */
-  API.setFont = function(fontName, fontStyle, fontWeight) {
+  API.setFont = function (fontName, fontStyle, fontWeight) {
     if (fontWeight) {
       fontStyle = combineFontStyleAndFontWeight(fontStyle, fontWeight);
     }
@@ -5801,7 +5823,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getFont
    */
-  var getFontEntry = (API.__private__.getFont = API.getFont = function() {
+  var getFontEntry = (API.__private__.getFont = API.getFont = function () {
     return fonts[getFont.apply(API, arguments)];
   });
 
@@ -5816,7 +5838,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getFontList
    */
-  API.__private__.getFontList = API.getFontList = function() {
+  API.__private__.getFontList = API.getFontList = function () {
     var list = {},
       fontName,
       fontStyle;
@@ -5848,7 +5870,7 @@ function jsPDF(options) {
    * @name addFont
    * @returns {string} fontId
    */
-  API.addFont = function(
+  API.addFont = function (
     postScriptName,
     fontName,
     fontStyle,
@@ -5882,7 +5904,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineWidth
    */
-  var setLineWidth = (API.__private__.setLineWidth = API.setLineWidth = function(
+  var setLineWidth = (API.__private__.setLineWidth = API.setLineWidth = function (
     width
   ) {
     out(hpf(scale(width)) + " w");
@@ -5903,7 +5925,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineDashPattern
    */
-  API.__private__.setLineDash = jsPDF.API.setLineDash = jsPDF.API.setLineDashPattern = function(
+  API.__private__.setLineDash = jsPDF.API.setLineDash = jsPDF.API.setLineDashPattern = function (
     dashArray,
     dashPhase
   ) {
@@ -5915,7 +5937,7 @@ function jsPDF(options) {
     }
 
     dashArray = dashArray
-      .map(function(x) {
+      .map(function (x) {
         return hpf(scale(x));
       })
       .join(" ");
@@ -5927,11 +5949,11 @@ function jsPDF(options) {
 
   var lineHeightFactor;
 
-  var getLineHeight = (API.__private__.getLineHeight = API.getLineHeight = function() {
+  var getLineHeight = (API.__private__.getLineHeight = API.getLineHeight = function () {
     return activeFontSize * lineHeightFactor;
   });
 
-  API.__private__.getLineHeight = API.getLineHeight = function() {
+  API.__private__.getLineHeight = API.getLineHeight = function () {
     return activeFontSize * lineHeightFactor;
   };
 
@@ -5945,7 +5967,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineHeightFactor
    */
-  var setLineHeightFactor = (API.__private__.setLineHeightFactor = API.setLineHeightFactor = function(
+  var setLineHeightFactor = (API.__private__.setLineHeightFactor = API.setLineHeightFactor = function (
     value
   ) {
     value = value || 1.15;
@@ -5964,19 +5986,19 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getLineHeightFactor
    */
-  var getLineHeightFactor = (API.__private__.getLineHeightFactor = API.getLineHeightFactor = function() {
+  var getLineHeightFactor = (API.__private__.getLineHeightFactor = API.getLineHeightFactor = function () {
     return lineHeightFactor;
   });
 
   setLineHeightFactor(options.lineHeight);
 
-  var getHorizontalCoordinate = (API.__private__.getHorizontalCoordinate = function(
+  var getHorizontalCoordinate = (API.__private__.getHorizontalCoordinate = function (
     value
   ) {
     return scale(value);
   });
 
-  var getVerticalCoordinate = (API.__private__.getVerticalCoordinate = function(
+  var getVerticalCoordinate = (API.__private__.getVerticalCoordinate = function (
     value
   ) {
     if (apiMode === ApiMode.ADVANCED) {
@@ -5989,13 +6011,13 @@ function jsPDF(options) {
     }
   });
 
-  var getHorizontalCoordinateString = (API.__private__.getHorizontalCoordinateString = API.getHorizontalCoordinateString = function(
+  var getHorizontalCoordinateString = (API.__private__.getHorizontalCoordinateString = API.getHorizontalCoordinateString = function (
     value
   ) {
     return hpf(getHorizontalCoordinate(value));
   });
 
-  var getVerticalCoordinateString = (API.__private__.getVerticalCoordinateString = API.getVerticalCoordinateString = function(
+  var getVerticalCoordinateString = (API.__private__.getVerticalCoordinateString = API.getVerticalCoordinateString = function (
     value
   ) {
     return hpf(getVerticalCoordinate(value));
@@ -6012,7 +6034,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getDrawColor
    */
-  API.__private__.getStrokeColor = API.getDrawColor = function() {
+  API.__private__.getStrokeColor = API.getDrawColor = function () {
     return decodeColorString(strokeColor);
   };
 
@@ -6054,7 +6076,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setDrawColor
    */
-  API.__private__.setStrokeColor = API.setDrawColor = function(
+  API.__private__.setStrokeColor = API.setDrawColor = function (
     ch1,
     ch2,
     ch3,
@@ -6085,7 +6107,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getFillColor
    */
-  API.__private__.getFillColor = API.getFillColor = function() {
+  API.__private__.getFillColor = API.getFillColor = function () {
     return decodeColorString(fillColor);
   };
 
@@ -6127,7 +6149,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setFillColor
    */
-  API.__private__.setFillColor = API.setFillColor = function(
+  API.__private__.setFillColor = API.setFillColor = function (
     ch1,
     ch2,
     ch3,
@@ -6157,7 +6179,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getTextColor
    */
-  var getTextColor = (API.__private__.getTextColor = API.getTextColor = function() {
+  var getTextColor = (API.__private__.getTextColor = API.getTextColor = function () {
     return decodeColorString(textColor);
   });
   /**
@@ -6198,7 +6220,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setTextColor
    */
-  API.__private__.setTextColor = API.setTextColor = function(
+  API.__private__.setTextColor = API.setTextColor = function (
     ch1,
     ch2,
     ch3,
@@ -6228,7 +6250,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getCharSpace
    */
-  var getCharSpace = (API.__private__.getCharSpace = API.getCharSpace = function() {
+  var getCharSpace = (API.__private__.getCharSpace = API.getCharSpace = function () {
     return parseFloat(activeCharSpace || 0);
   });
 
@@ -6242,7 +6264,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setCharSpace
    */
-  API.__private__.setCharSpace = API.setCharSpace = function(charSpace) {
+  API.__private__.setCharSpace = API.setCharSpace = function (charSpace) {
     if (isNaN(charSpace)) {
       throw new Error("Invalid argument passed to jsPDF.setCharSpace");
     }
@@ -6286,13 +6308,13 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineCap
    */
-  API.__private__.setLineCap = API.setLineCap = function(style) {
+  API.__private__.setLineCap = API.setLineCap = function (style) {
     var id = API.CapJoinStyles[style];
     if (id === undefined) {
       throw new Error(
         "Line cap style of '" +
-          style +
-          "' is not recognized. See or extend .CapJoinStyles property for valid styles"
+        style +
+        "' is not recognized. See or extend .CapJoinStyles property for valid styles"
       );
     }
     lineCapID = id;
@@ -6313,13 +6335,13 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineJoin
    */
-  API.__private__.setLineJoin = API.setLineJoin = function(style) {
+  API.__private__.setLineJoin = API.setLineJoin = function (style) {
     var id = API.CapJoinStyles[style];
     if (id === undefined) {
       throw new Error(
         "Line join style of '" +
-          style +
-          "' is not recognized. See or extend .CapJoinStyles property for valid styles"
+        style +
+        "' is not recognized. See or extend .CapJoinStyles property for valid styles"
       );
     }
     lineJoinID = id;
@@ -6337,7 +6359,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setLineMiterLimit
    */
-  API.__private__.setLineMiterLimit = API.__private__.setMiterLimit = API.setLineMiterLimit = API.setMiterLimit = function(
+  API.__private__.setLineMiterLimit = API.__private__.setMiterLimit = API.setLineMiterLimit = API.setMiterLimit = function (
     length
   ) {
     length = length || 0;
@@ -6371,7 +6393,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setGState
    */
-  API.setGState = function(gState) {
+  API.setGState = function (gState) {
     if (typeof gState === "string") {
       gState = gStates[gStatesMap[gState]];
     } else {
@@ -6389,7 +6411,7 @@ function jsPDF(options) {
    * @param {String} key Might also be null, if no later reference to this gState is needed
    * @param {Object} gState The gState object
    */
-  var addGState = function(key, gState) {
+  var addGState = function (key, gState) {
     // only add it if it is not already present (the keys provided by the user must be unique!)
     if (key && gStatesMap[key]) return;
     var duplicate = false;
@@ -6429,7 +6451,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name addGState
    */
-  API.addGState = function(key, gState) {
+  API.addGState = function (key, gState) {
     addGState(key, gState);
     return this;
   };
@@ -6443,7 +6465,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name saveGraphicsState
    */
-  API.saveGraphicsState = function() {
+  API.saveGraphicsState = function () {
     out("q");
     // as we cannot set font key and size independently we must keep track of both
     fontStateStack.push({
@@ -6461,7 +6483,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name restoreGraphicsState
    */
-  API.restoreGraphicsState = function() {
+  API.restoreGraphicsState = function () {
     out("Q");
 
     // restore previous font state
@@ -6484,7 +6506,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name setCurrentTransformationMatrix
    */
-  API.setCurrentTransformationMatrix = function(matrix) {
+  API.setCurrentTransformationMatrix = function (matrix) {
     out(matrix.toString() + " cm");
     return this;
   };
@@ -6498,7 +6520,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name comment
    */
-  API.comment = function(text) {
+  API.comment = function (text) {
     out("#" + text);
     return this;
   };
@@ -6506,14 +6528,14 @@ function jsPDF(options) {
   /**
    * Point
    */
-  var Point = function(x, y) {
+  var Point = function (x, y) {
     var _x = x || 0;
     Object.defineProperty(this, "x", {
       enumerable: true,
-      get: function() {
+      get: function () {
         return _x;
       },
-      set: function(value) {
+      set: function (value) {
         if (!isNaN(value)) {
           _x = parseFloat(value);
         }
@@ -6523,10 +6545,10 @@ function jsPDF(options) {
     var _y = y || 0;
     Object.defineProperty(this, "y", {
       enumerable: true,
-      get: function() {
+      get: function () {
         return _y;
       },
-      set: function(value) {
+      set: function (value) {
         if (!isNaN(value)) {
           _y = parseFloat(value);
         }
@@ -6536,10 +6558,10 @@ function jsPDF(options) {
     var _type = "pt";
     Object.defineProperty(this, "type", {
       enumerable: true,
-      get: function() {
+      get: function () {
         return _type;
       },
-      set: function(value) {
+      set: function (value) {
         _type = value.toString();
       }
     });
@@ -6549,17 +6571,17 @@ function jsPDF(options) {
   /**
    * Rectangle
    */
-  var Rectangle = function(x, y, w, h) {
+  var Rectangle = function (x, y, w, h) {
     Point.call(this, x, y);
     this.type = "rect";
 
     var _w = w || 0;
     Object.defineProperty(this, "w", {
       enumerable: true,
-      get: function() {
+      get: function () {
         return _w;
       },
-      set: function(value) {
+      set: function (value) {
         if (!isNaN(value)) {
           _w = parseFloat(value);
         }
@@ -6569,10 +6591,10 @@ function jsPDF(options) {
     var _h = h || 0;
     Object.defineProperty(this, "h", {
       enumerable: true,
-      get: function() {
+      get: function () {
         return _h;
       },
-      set: function(value) {
+      set: function (value) {
         if (!isNaN(value)) {
           _h = parseFloat(value);
         }
@@ -6586,7 +6608,7 @@ function jsPDF(options) {
    * FormObject/RenderTarget
    */
 
-  var RenderTarget = function() {
+  var RenderTarget = function () {
     this.page = page;
     this.currentPage = currentPage;
     this.pages = pages.slice(0);
@@ -6602,7 +6624,7 @@ function jsPDF(options) {
     this.objectNumber = -1; // will be set by putXObject()
   };
 
-  RenderTarget.prototype.restore = function() {
+  RenderTarget.prototype.restore = function () {
     page = this.page;
     currentPage = this.currentPage;
     pagesContext = this.pagesContext;
@@ -6615,7 +6637,7 @@ function jsPDF(options) {
     outputDestination = this.outputDestination;
   };
 
-  var beginNewRenderTarget = function(x, y, width, height, matrix) {
+  var beginNewRenderTarget = function (x, y, width, height, matrix) {
     // save current state
     renderTargetStack.push(new RenderTarget());
 
@@ -6630,9 +6652,12 @@ function jsPDF(options) {
     beginPage([width, height]);
   };
 
-  var endFormObject = function(key) {
+  var endFormObject = function (key) {
     // only add it if it is not already present (the keys provided by the user must be unique!)
-    if (renderTargetMap[key]) return;
+    if (renderTargetMap[key]) {
+      renderTargetStack.pop().restore();
+      return;
+    }
 
     // save the created xObject
     var newXObject = new RenderTarget();
@@ -6666,7 +6691,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name beginFormObject
    */
-  API.beginFormObject = function(x, y, width, height, matrix) {
+  API.beginFormObject = function (x, y, width, height, matrix) {
     // The user can set the output target to a new form object. Nested form objects are possible.
     // Currently, they use the resource dictionary of the surrounding stream. This should be changed, as
     // the PDF-Spec states:
@@ -6686,7 +6711,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name endFormObject
    */
-  API.endFormObject = function(key) {
+  API.endFormObject = function (key) {
     endFormObject(key);
     return this;
   };
@@ -6703,7 +6728,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name doFormObject
    */
-  API.doFormObject = function(key, matrix) {
+  API.doFormObject = function (key, matrix) {
     var xObject = renderTargets[renderTargetMap[key]];
     out("q");
     out(matrix.toString() + " cm");
@@ -6721,7 +6746,7 @@ function jsPDF(options) {
    * @memberof jsPDF#
    * @name getFormObject
    */
-  API.getFormObject = function(key) {
+  API.getFormObject = function (key) {
     var xObject = renderTargets[renderTargetMap[key]];
     return {
       x: xObject.x,
@@ -6743,7 +6768,7 @@ function jsPDF(options) {
    * @param  {string} filename The filename including extension.
    * @param  {Object} options An Object with additional options, possible options: 'returnPromise'.
    * @returns {jsPDF|Promise} jsPDF-instance     */
-  API.save = function(filename, options) {
+  API.save = function (filename, options) {
     filename = filename || "generated.pdf";
 
     options = options || {};
@@ -6758,7 +6783,7 @@ function jsPDF(options) {
       }
       return this;
     } else {
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         try {
           var result = saveAs(getBlob(buildDocument()), filename);
           if (typeof saveAs.unload === "function") {
@@ -6781,7 +6806,7 @@ function jsPDF(options) {
   for (var plugin in jsPDF.API) {
     if (jsPDF.API.hasOwnProperty(plugin)) {
       if (plugin === "events" && jsPDF.API.events.length) {
-        (function(events, newEvents) {
+        (function (events, newEvents) {
           // jsPDF.API.events is a JS Array of Arrays
           // where each Array is a pair of event name, handler
           // Events were added by plugins to the jsPDF instantiator.
@@ -6813,7 +6838,7 @@ function jsPDF(options) {
     }
   }
 
-  var getPageWidth = (API.getPageWidth = function(pageNumber) {
+  var getPageWidth = (API.getPageWidth = function (pageNumber) {
     pageNumber = pageNumber || currentPage;
     return (
       (pagesContext[pageNumber].mediaBox.topRightX -
@@ -6822,12 +6847,12 @@ function jsPDF(options) {
     );
   });
 
-  var setPageWidth = (API.setPageWidth = function(pageNumber, value) {
+  var setPageWidth = (API.setPageWidth = function (pageNumber, value) {
     pagesContext[pageNumber].mediaBox.topRightX =
       value * scaleFactor + pagesContext[pageNumber].mediaBox.bottomLeftX;
   });
 
-  var getPageHeight = (API.getPageHeight = function(pageNumber) {
+  var getPageHeight = (API.getPageHeight = function (pageNumber) {
     pageNumber = pageNumber || currentPage;
     return (
       (pagesContext[pageNumber].mediaBox.topRightY -
@@ -6836,7 +6861,7 @@ function jsPDF(options) {
     );
   });
 
-  var setPageHeight = (API.setPageHeight = function(pageNumber, value) {
+  var setPageHeight = (API.setPageHeight = function (pageNumber, value) {
     pagesContext[pageNumber].mediaBox.topRightY =
       value * scaleFactor + pagesContext[pageNumber].mediaBox.bottomLeftY;
   });
@@ -6870,16 +6895,16 @@ function jsPDF(options) {
     events: events,
     scaleFactor: scaleFactor,
     pageSize: {
-      getWidth: function() {
+      getWidth: function () {
         return getPageWidth(currentPage);
       },
-      setWidth: function(value) {
+      setWidth: function (value) {
         setPageWidth(currentPage, value);
       },
-      getHeight: function() {
+      getHeight: function () {
         return getPageHeight(currentPage);
       },
-      setHeight: function(value) {
+      setHeight: function (value) {
         setPageHeight(currentPage, value);
       }
     },
@@ -6903,20 +6928,20 @@ function jsPDF(options) {
   };
 
   Object.defineProperty(API.internal.pageSize, "width", {
-    get: function() {
+    get: function () {
       return getPageWidth(currentPage);
     },
-    set: function(value) {
+    set: function (value) {
       setPageWidth(currentPage, value);
     },
     enumerable: true,
     configurable: true
   });
   Object.defineProperty(API.internal.pageSize, "height", {
-    get: function() {
+    get: function () {
       return getPageHeight(currentPage);
     },
-    set: function(value) {
+    set: function (value) {
       setPageHeight(currentPage, value);
     },
     enumerable: true,
@@ -10119,6 +10144,11 @@ var AcroForm = jsPDF.AcroForm;
 
   var UNKNOWN = "UNKNOWN";
 
+  // Heuristic selection of a good batch for large array .apply. Not limiting make the call overflow.
+  // With too small batch iteration will be slow as more calls are made,
+  // higher values cause larger and slower garbage collection.
+  var ARRAY_APPLY_BATCH = 8192;
+
   var imageFileTypeHeaders = {
     PNG: [[0x89, 0x50, 0x4e, 0x47]],
     TIFF: [
@@ -10457,6 +10487,14 @@ var AcroForm = jsPDF.AcroForm;
     }
 
     if (element.nodeName === "CANVAS") {
+      if (element.width === 0 || element.height === 0) {
+        throw new Error(
+          "Given canvas must have data. Canvas width: " +
+            element.width +
+            ", height: " +
+            element.height
+        );
+      }
       var mimeType;
       switch (format) {
         case "PNG":
@@ -10799,27 +10837,27 @@ var AcroForm = jsPDF.AcroForm;
    * @name arrayBufferToBinaryString
    * @public
    * @function
-   * @param {ArrayBuffer} ArrayBuffer with ImageData
+   * @param {ArrayBuffer|ArrayBufferView} ArrayBuffer buffer or bufferView with ImageData
    *
    * @returns {String}
    */
   var arrayBufferToBinaryString = (jsPDFAPI.__addimage__.arrayBufferToBinaryString = function(
     buffer
   ) {
-    try {
-      return atob(btoa(String.fromCharCode.apply(null, buffer)));
-    } catch (e) {
-      if (
-        typeof Uint8Array !== "undefined" &&
-        typeof Uint8Array.prototype.reduce !== "undefined"
-      ) {
-        return new Uint8Array(buffer)
-          .reduce(function(data, byte) {
-            return data.push(String.fromCharCode(byte)), data;
-          }, [])
-          .join("");
-      }
+    var out = "";
+    // There are calls with both ArrayBuffer and already converted Uint8Array or other BufferView.
+    // Do not copy the array if input is already an array.
+    var buf = isArrayBufferView(buffer) ? buffer : new Uint8Array(buffer);
+    for (var i = 0; i < buf.length; i += ARRAY_APPLY_BATCH) {
+      // Limit the amount of characters being parsed to prevent overflow.
+      // Note that while TextDecoder would be faster, it does not have the same
+      // functionality as fromCharCode with any provided encodings as of 3/2021.
+      out += String.fromCharCode.apply(
+        null,
+        buf.subarray(i, i + ARRAY_APPLY_BATCH)
+      );
     }
+    return out;
   });
 
   /**
@@ -12429,7 +12467,10 @@ var AcroForm = jsPDF.AcroForm;
       });
     }
 
-    if (autoSize || (Array.isArray(headers) && typeof headers[0] === "string")) {
+    if (
+      autoSize ||
+      (Array.isArray(headers) && typeof headers[0] === "string")
+    ) {
       var headerName;
       for (i = 0; i < headerNames.length; i += 1) {
         headerName = headerNames[i];
@@ -13054,6 +13095,8 @@ function parseFontFamily(input) {
     this.currentPoint = ctx.currentPoint || new Point();
     this.miterLimit = ctx.miterLimit || 10.0;
     this.lastPoint = ctx.lastPoint || new Point();
+    this.lineDashOffset = ctx.lineDashOffset || 0.0;
+    this.lineDash = ctx.lineDash || [];
 
     this.ignoreClearRect =
       typeof ctx.ignoreClearRect === "boolean" ? ctx.ignoreClearRect : true;
@@ -13507,10 +13550,10 @@ function parseFontFamily(input) {
         matches = rx.exec(value);
         if (matches !== null) {
           var fontStyle = matches[1];
-          var fontVariant = matches[2];
+          matches[2];
           var fontWeight = matches[3];
           var fontSize = matches[4];
-          var lineHeight = matches[5];
+          matches[5];
           var fontFamily = matches[6];
         } else {
           return;
@@ -13644,6 +13687,33 @@ function parseFontFamily(input) {
       }
     });
 
+    /**
+     * A float specifying the amount of the line dash offset. The default value is 0.0.
+     *
+     * @name lineDashOffset
+     * @default 0.0
+     */
+    Object.defineProperty(this, "lineDashOffset", {
+      get: function() {
+        return this.ctx.lineDashOffset;
+      },
+      set: function(value) {
+        this.ctx.lineDashOffset = value;
+        setLineDash.call(this);
+      }
+    });
+
+    // Not HTML API
+    Object.defineProperty(this, "lineDash", {
+      get: function() {
+        return this.ctx.lineDash;
+      },
+      set: function(value) {
+        this.ctx.lineDash = value;
+        setLineDash.call(this);
+      }
+    });
+
     // Not HTML API
     Object.defineProperty(this, "ignoreClearRect", {
       get: function() {
@@ -13653,6 +13723,32 @@ function parseFontFamily(input) {
         this.ctx.ignoreClearRect = Boolean(value);
       }
     });
+  };
+
+  /**
+   * Sets the line dash pattern used when stroking lines.
+   * @name setLineDash
+   * @function
+   * @description It uses an array of values that specify alternating lengths of lines and gaps which describe the pattern.
+   */
+  Context2D.prototype.setLineDash = function(dashArray) {
+    this.lineDash = dashArray;
+  };
+
+  /**
+   * gets the current line dash pattern.
+   * @name getLineDash
+   * @function
+   * @returns {Array} An Array of numbers that specify distances to alternately draw a line and a gap (in coordinate space units). If the number, when setting the elements, is odd, the elements of the array get copied and concatenated. For example, setting the line dash to [5, 15, 25] will result in getting back [5, 15, 25, 5, 15, 25].
+   */
+  Context2D.prototype.getLineDash = function() {
+    if (this.lineDash.length % 2) {
+      // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/getLineDash#return_value
+      return this.lineDash.concat(this.lineDash);
+    } else {
+      // The copied value is returned to prevent contamination from outside.
+      return this.lineDash.slice();
+    }
   };
 
   Context2D.prototype.fill = function() {
@@ -14108,6 +14204,8 @@ function parseFontFamily(input) {
       this.lineCap = this.ctx.lineCap;
       this.lineWidth = this.ctx.lineWidth;
       this.lineJoin = this.ctx.lineJoin;
+      this.lineDash = this.ctx.lineDash;
+      this.lineDashOffset = this.ctx.lineDashOffset;
     }
   };
 
@@ -14685,7 +14783,7 @@ function parseFontFamily(input) {
     var strokeStyle = this.strokeStyle;
     var lineCap = this.lineCap;
     var oldLineWidth = this.lineWidth;
-    var lineWidth = oldLineWidth * this.ctx.transform.scaleX;
+    var lineWidth = Math.abs(oldLineWidth * this.ctx.transform.scaleX);
     var lineJoin = this.lineJoin;
 
     var origPath = JSON.parse(JSON.stringify(this.path));
@@ -14982,7 +15080,7 @@ function parseFontFamily(input) {
 
     for (var i = 0; i < curves.length; i++) {
       var curve = curves[i];
-      if ( i === 0) {
+      if (i === 0) {
         doMove.call(this, curve.x1 + x, curve.y1 + y);
       }
       drawCurve.call(
@@ -15343,6 +15441,34 @@ function parseFontFamily(input) {
       Math.round(maxx - minx),
       Math.round(maxy - miny)
     );
+  };
+
+  var getPrevLineDashValue = function(lineDash, lineDashOffset) {
+    return JSON.stringify({
+      lineDash: lineDash,
+      lineDashOffset: lineDashOffset
+    });
+  };
+
+  var setLineDash = function() {
+    // Avoid unnecessary line dash declarations.
+    if (
+      !this.prevLineDash &&
+      !this.ctx.lineDash.length &&
+      !this.ctx.lineDashOffset
+    ) {
+      return;
+    }
+
+    // Avoid unnecessary line dash declarations.
+    const nextLineDash = getPrevLineDashValue(
+      this.ctx.lineDash,
+      this.ctx.lineDashOffset
+    );
+    if (this.prevLineDash !== nextLineDash) {
+      this.pdf.setLineDash(this.ctx.lineDash, this.ctx.lineDashOffset);
+      this.prevLineDash = nextLineDash;
+    }
   };
 })(jsPDF.API);
 
@@ -17093,7 +17219,6 @@ var PNG = (function() {
       delayDen,
       delayNum,
       frame,
-      i,
       index,
       key,
       section,
@@ -17115,7 +17240,7 @@ var PNG = (function() {
       section = function() {
         var _i, _results;
         _results = [];
-        for (i = _i = 0; _i < 4; i = ++_i) {
+        for (_i = 0; _i < 4; ++_i) {
           _results.push(String.fromCharCode(this.data[this.pos++]));
         }
         return _results;
@@ -17168,9 +17293,9 @@ var PNG = (function() {
           }
           data = (frame != null ? frame.data : void 0) || this.imgData;
           for (
-            i = _i = 0;
+            _i = 0;
             0 <= chunkSize ? _i < chunkSize : _i > chunkSize;
-            i = 0 <= chunkSize ? ++_i : --_i
+            0 <= chunkSize ? ++_i : --_i
           ) {
             data.push(this.data[this.pos++]);
           }
@@ -17190,9 +17315,9 @@ var PNG = (function() {
               palShort = palLen - this.transparency.indexed.length;
               if (palShort > 0) {
                 for (
-                  i = _j = 0;
+                  _j = 0;
                   0 <= palShort ? _j < palShort : _j > palShort;
-                  i = 0 <= palShort ? ++_j : --_j
+                  0 <= palShort ? ++_j : --_j
                 ) {
                   this.transparency.indexed.push(255);
                 }
@@ -17253,12 +17378,12 @@ var PNG = (function() {
   }
 
   PNG.prototype.read = function(bytes) {
-    var i, _i, _results;
+    var _i, _results;
     _results = [];
     for (
-      i = _i = 0;
+      _i = 0;
       0 <= bytes ? _i < bytes : _i > bytes;
-      i = 0 <= bytes ? ++_i : --_i
+      0 <= bytes ? ++_i : --_i
     ) {
       _results.push(this.data[this.pos++]);
     }
@@ -18174,7 +18299,7 @@ function GifReader(buf) {
   var global_palette_flag = pf0 >> 7;
   var num_global_colors_pow2 = pf0 & 0x7;
   var num_global_colors = 1 << (num_global_colors_pow2 + 1);
-  var background = buf[p++];
+  buf[p++];
   buf[p++]; // Pixel aspect ratio (unused?).
 
   var global_palette_offset = null;
@@ -25495,7 +25620,7 @@ WebPRiffParser dominikhlbg@gmail.com
     imagearray["frames"] = [];
     if (memcmp(src, src_off, "RIFF", 4)) return;
     src_off += 4;
-    var riff_size = GetLE32(src, src_off) + 8;
+    GetLE32(src, src_off) + 8;
     src_off += 8;
 
     while (src_off < src.length) {
@@ -25512,8 +25637,6 @@ WebPRiffParser dominikhlbg@gmail.com
           if (typeof imagearray["frames"][i] === "undefined")
             imagearray["frames"][i] = {};
           var obj = imagearray["frames"][i];
-          var height = [0];
-          var width = [0];
           obj["src_off"] = alpha_chunk ? alpha_offset : src_off - 8;
           obj["src_size"] = alpha_size + payload_size + 8;
           //var rgba = webpdecoder.WebPDecodeRGBA(src,(alpha_chunk?alpha_offset:src_off-8),alpha_size+payload_size+8,width,height);
@@ -25527,11 +25650,11 @@ WebPRiffParser dominikhlbg@gmail.com
           break;
         case "VP8X":
           var obj = (imagearray["header"] = {});
-          var feature_flags = (obj["feature_flags"] = src[src_off]);
+          (obj["feature_flags"] = src[src_off]);
           var src_off_ = src_off + 4;
-          var canvas_width = (obj["canvas_width"] = 1 + GetLE24(src, src_off_));
+          (obj["canvas_width"] = 1 + GetLE24(src, src_off_));
           src_off_ += 3;
-          var canvas_height = (obj["canvas_height"] =
+          (obj["canvas_height"] =
             1 + GetLE24(src, src_off_));
           src_off_ += 3;
           break;
@@ -25543,35 +25666,28 @@ WebPRiffParser dominikhlbg@gmail.com
 
         case "ANIM":
           var obj = imagearray["header"];
-          var bgcolor = (obj["bgcolor"] = GetLE32(src, src_off));
+          (obj["bgcolor"] = GetLE32(src, src_off));
           src_off_ = src_off + 4;
 
-          var loop_count = (obj["loop_count"] = GetLE16(src, src_off_));
+          (obj["loop_count"] = GetLE16(src, src_off_));
           src_off_ += 2;
           break;
         case "ANMF":
-          var offset_x = 0,
-            offset_y = 0,
-            width = 0,
-            height = 0,
-            duration = 0,
-            blend = 0,
-            dispose = 0,
-            temp = 0;
+          var temp = 0;
           var obj = (imagearray["frames"][i] = {});
-          obj["offset_x"] = offset_x = 2 * GetLE24(src, src_off);
+          obj["offset_x"] = 2 * GetLE24(src, src_off);
           src_off += 3;
-          obj["offset_y"] = offset_y = 2 * GetLE24(src, src_off);
+          obj["offset_y"] = 2 * GetLE24(src, src_off);
           src_off += 3;
-          obj["width"] = width = 1 + GetLE24(src, src_off);
+          obj["width"] = 1 + GetLE24(src, src_off);
           src_off += 3;
-          obj["height"] = height = 1 + GetLE24(src, src_off);
+          obj["height"] = 1 + GetLE24(src, src_off);
           src_off += 3;
-          obj["duration"] = duration = GetLE24(src, src_off);
+          obj["duration"] = GetLE24(src, src_off);
           src_off += 3;
           temp = src[src_off++];
-          obj["dispose"] = dispose = temp & 1;
-          obj["blend"] = blend = (temp >> 1) & 1;
+          obj["dispose"] = temp & 1;
+          obj["blend"] = (temp >> 1) & 1;
           break;
       }
       if (fourcc != "ANMF") src_off += payload_size_padded;
@@ -25804,7 +25920,7 @@ WebPDecoder.prototype.getData = function() {
       lv: "Latvian",
       lt: "Lithuanian",
       lb: "Luxembourgish",
-      mk: "FYRO Macedonian",
+      mk: "North Macedonia",
       ms: "Malay",
       ml: "Malayalam",
       mt: "Maltese",
@@ -27441,7 +27557,6 @@ WebPDecoder.prototype.getData = function() {
     var out = options.out;
     var newObject = options.newObject;
     var putStream = options.putStream;
-    var pdfEscapeWithNeededParanthesis = options.pdfEscapeWithNeededParanthesis;
 
     if (
       font.metadata instanceof jsPDF.API.TTFFont &&
@@ -27467,7 +27582,7 @@ WebPDecoder.prototype.getData = function() {
       var fontDescriptor = newObject();
       out("<<");
       out("/Type /FontDescriptor");
-      out("/FontName /" + pdfEscapeWithNeededParanthesis(font.fontName));
+      out("/FontName /" + toPDFName(font.fontName));
       out("/FontFile2 " + fontTable + " 0 R");
       out("/FontBBox " + jsPDF.API.PDFObject.convert(font.metadata.bbox));
       out("/Flags " + font.metadata.flags);
@@ -27482,7 +27597,7 @@ WebPDecoder.prototype.getData = function() {
       var DescendantFont = newObject();
       out("<<");
       out("/Type /Font");
-      out("/BaseFont /" + pdfEscapeWithNeededParanthesis(font.fontName));
+      out("/BaseFont /" + toPDFName(font.fontName));
       out("/FontDescriptor " + fontDescriptor + " 0 R");
       out("/W " + jsPDF.API.PDFObject.convert(widths));
       out("/CIDToGIDMap /Identity");
@@ -27502,7 +27617,7 @@ WebPDecoder.prototype.getData = function() {
       out("/Type /Font");
       out("/Subtype /Type0");
       out("/ToUnicode " + cmap + " 0 R");
-      out("/BaseFont /" + pdfEscapeWithNeededParanthesis(font.fontName));
+      out("/BaseFont /" + toPDFName(font.fontName));
       out("/Encoding /" + font.encoding);
       out("/DescendantFonts [" + DescendantFont + " 0 R]");
       out(">>");
@@ -27524,7 +27639,6 @@ WebPDecoder.prototype.getData = function() {
     var out = options.out;
     var newObject = options.newObject;
     var putStream = options.putStream;
-    var pdfEscapeWithNeededParanthesis = options.pdfEscapeWithNeededParanthesis;
 
     if (
       font.metadata instanceof jsPDF.API.TTFFont &&
@@ -27555,7 +27669,7 @@ WebPDecoder.prototype.getData = function() {
       out("/FontFile2 " + fontTable + " 0 R");
       out("/Flags 96");
       out("/FontBBox " + jsPDF.API.PDFObject.convert(font.metadata.bbox));
-      out("/FontName /" + pdfEscapeWithNeededParanthesis(font.fontName));
+      out("/FontName /" + toPDFName(font.fontName));
       out("/ItalicAngle " + font.metadata.italicAngle);
       out("/Ascent " + font.metadata.ascender);
       out(">>");
@@ -27570,7 +27684,7 @@ WebPDecoder.prototype.getData = function() {
         "<</Subtype/TrueType/Type/Font/ToUnicode " +
           cmap +
           " 0 R/BaseFont/" +
-          pdfEscapeWithNeededParanthesis(font.fontName) +
+          toPDFName(font.fontName) +
           "/FontDescriptor " +
           fontDescriptor +
           " 0 R" +
@@ -27636,10 +27750,10 @@ WebPDecoder.prototype.getData = function() {
                     if (Object.prototype.toString.call(text[s]) === '[object Array]') {
                         cmapConfirm = fonts[key].metadata.cmap.unicode.codeMap[strText[s][0].charCodeAt(0)]; //Make sure the cmap has the corresponding glyph id
                     } else {
-                        
+
                     }
                 //}
-                
+
             } else {
                 cmapConfirm = fonts[key].metadata.cmap.unicode.codeMap[strText[s].charCodeAt(0)]; //Make sure the cmap has the corresponding glyph id
             }*/
@@ -30453,11 +30567,11 @@ WebPDecoder.prototype.getData = function() {
 
   var bidiEngineFunction = function(args) {
     var text = args.text;
-    var x = args.x;
-    var y = args.y;
+    args.x;
+    args.y;
     var options = args.options || {};
-    var mutex = args.mutex || {};
-    var lang = options.lang;
+    args.mutex || {};
+    options.lang;
     var tmpText = [];
 
     options.isInputVisual =

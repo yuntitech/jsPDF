@@ -2735,18 +2735,6 @@ function jsPDF(options) {
 
     format = [width, height];
 
-    switch (orientation.substr(0, 1)) {
-      case "l":
-        if (height > width) {
-          format = [height, width];
-        }
-        break;
-      case "p":
-        if (width > height) {
-          format = [height, width];
-        }
-        break;
-    }
 
     beginPage(format);
 
